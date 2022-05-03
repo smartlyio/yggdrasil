@@ -1,26 +1,30 @@
 version: '3'
 services:
 
-  #PHP Service
-  app:
-    image: golang:1.18.1-buster
-    container_name: app
+  yggdrasil:
+    image: yggdrasil:latest
+    command: --config=config.yaml --debug --upstream-port=80
+    container_name: yggdrasil
     restart: unless-stopped
     tty: true
     environment:
-      SERVICE_NAME: app
+      SERVICE_NAME: yggdrasil
       SERVICE_TAGS: dev
-    working_dir: /var/www
     volumes:
-      - ./:/var/www
-    networks:
-      - app-network
+      - /vagrant/config/config.yml:/config.yaml
+      - /vagrant/config/cluster1-ca.crt:/cluster1-ca.crt
+      - /vagrant/config/cluster1-token:/cluster1-token
+    network_mode: "host"
 
-#Docker Networks
-networks:
-  app-network:
-    driver: bridge
-#Volumes
-volumes:
-  dbdata:
-    driver: local
+  envoy:
+    image: envoyproxy/envoy:v1.19-latest
+    container_name: envoy
+    command: --service-node envoy-node --service-cluster envoy-node --config-path /etc/envoy/envoy.yaml
+    restart: unless-stopped
+    tty: true
+    environment:
+      ENVOY_UID: 0
+    working_dir: /var/log/envoy/
+    volumes:
+      - /vagrant/yggdrasil/envoy.yml:/etc/envoy/envoy.yaml
+    network_mode: "host"

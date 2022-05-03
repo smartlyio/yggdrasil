@@ -4,6 +4,123 @@ Yggdrasil is an Envoy control plane that configures listeners and clusters based
 `Note:` Currently we support version 1.19.x of Envoy.</br>
 `Note:` Yggdrasil now uses [Go modules](https://github.com/golang/go/wiki/Modules) to handle dependencies.
 
+## Smartly way to develop
+
+```
+# run vagrant
+vagrant up
+vagrant ssh
+sudo su
+cd /vagrant/
+#build the go binary
+docker-compose -f develop-docker-compose.yml up -d
+docker exec -it app bash
+go get
+go mod tidy
+make
+exit
+# build yggdrasil image
+docker build -t yggdrasil:latest
+#run tests
+# you need to create a cluster for yggdrasil to collect the information from
+
+k3d cluster create cluster1 --k3s-arg "--disable=traefik@server:0" --k3s-arg "--disable=servicelb@server:0" --k3s-arg "--cluster-cidr=10.118.0.0/17@server:*" --k3s-arg "--service-cidr=10.118.128.0/17@server:*"
+
+#install metallb
+for cluster_name in $(docker network list --format "{{ .Name}}" | grep k3d); do
+
+cidr_block=$(docker network inspect $cluster_name | jq '.[0].IPAM.Config[0].Subnet' | tr -d '"')
+cidr_base_addr=${cidr_block%???}
+ingress_first_addr=$(echo $cidr_base_addr | awk -F'.' '{print $1,$2,255,0}' OFS='.')
+ingress_last_addr=$(echo $cidr_base_addr | awk -F'.' '{print $1,$2,255,255}' OFS='.')
+ingress_range=$ingress_first_addr-$ingress_last_addr
+
+# switch context to current cluster
+kubectl config use-context $cluster_name
+
+# deploy metallb
+kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.12.1/manifests/namespace.yaml
+kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.12.1/manifests/metallb.yaml
+
+# configure metallb ingress address range
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: metallb-system
+  name: config
+data:
+  config: |
+    address-pools:
+    - name: default
+      protocol: layer2
+      addresses:
+      - $ingress_range
+EOF
+done
+
+
+#configure yggdrasil to work
+mkdir config
+kubectl config view --minify --raw --output 'jsonpath={.clusters.name=="k3d-cluster1"}{..cluster.certificate-authority-data}' | base64 -d > config/cluster1-ca.crt
+
+#create service account for yggdrasil and get its token
+
+cat <<EOF | kubectl apply -f -
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: '*'
+  name: yggdrasil-read-only
+rules:
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch"]
+EOF
+
+
+cat <<EOF | kubectl apply -f -
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: yggdrasil-sa-binding
+subjects:
+- kind: ServiceAccount
+  name: yggdrasil-sa
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: yggdrasil-read-only
+  apiGroup: rbac.authorization.k8s.io
+EOF
+
+kubectl create serviceaccount yggdrasil-sa
+
+kubectl get secrets -o jsonpath="{.items[?(@.metadata.annotations['kubernetes\.io/service-account\.name']=='yggdrasil-sa')].data.token}"|base64 --decode > config/cluster1-token
+
+
+# final yggdrasil configurtion
+
+cat <<EOF>> config/config.yaml
+{
+  "nodeName": "envoy-node",
+  "ingressClasses": ["nginx"],
+  "clusters": [
+    {
+      "apiServer": "https://localhost:6445",
+      "ca": "cluster1-ca.crt",
+      "tokenPath": "cluster1-token"
+    }
+  ]
+}
+EOF
+
+docker-compose -f docker-compose up -d
+
+#if you are locky then you can see envoy dashboard in your local browser with this address http://localhost:9901 and dump the configuration
+
+```
+
 ## Usage
 Yggdrasil will watch all Ingresses in each Kubernetes Cluster that you give it via the Kubeconfig flag. Any ingresses that match any of the ingress classes that you have specified will have a listener and cluster created that listens on the same Host as the Host defined in the Ingress object. If you have multiple clusters Yggdrasil will create a cluster address for each Kubernetes cluster your Ingress is in, the address is the address of the ingress loadbalancer.
 
