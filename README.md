@@ -20,7 +20,7 @@ go mod tidy
 make
 exit
 # build yggdrasil image
-docker build -t yggdrasil:latest
+docker build . -t yggdrasil:latest
 #run tests
 # you need to create a cluster for yggdrasil to collect the information from
 
@@ -115,7 +115,7 @@ cat <<EOF>> config/config.yaml
 }
 EOF
 
-docker-compose -f docker-compose up -d
+docker-compose -f docker-compose.yml up -d
 
 #if you are locky then you can see envoy dashboard in your local browser with this address http://localhost:9901 and dump the configuration
 
