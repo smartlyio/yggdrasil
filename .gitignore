@@ -2,3 +2,4 @@ bin/
 command
 testing
 .vagrant
+config/cluster1-*
