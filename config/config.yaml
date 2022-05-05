@@ -3,7 +3,7 @@
   "ingressClasses": ["nginx"],
   "clusters": [
     {
-      "apiServer": "https://172.19.0.2:6443",
+      "apiServer": "https://k3d-cluster1-server-0:6443",
       "ca": "cluster1-ca.crt",
       "tokenPath": "cluster1-token"
     }
