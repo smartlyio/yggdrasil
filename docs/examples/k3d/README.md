@@ -8,12 +8,13 @@ Build yggdrasil and it's docker image, in the repo root mounted at /yggdrasil:
 ```
 sudo su
 cd /yggdrasil
-docker run -it -w "/app" -v "$(pwd)/:/app" --env "SERVICE_NAME=app" --env "SERVICE_TAGS=dev" --network bridge golang:1.18.1-buster bash
+docker-compose -f develop-docker-compose.yml up -d
+docker exec -it yggdrasil-app bash
 go get
 go mod tidy
 make
 exit
-docker build . -t yggdrasil:latest
+docker build . -t local-yggdrasil:latest
 ```
 
 Go to this examples directory and configure your k3d clusters
@@ -55,7 +56,13 @@ kubectl apply -f kube-manifests/yggdrasil.yml
 kubectl get secrets -o jsonpath="{.items[?(@.metadata.annotations['kubernetes\.io/service-account\.name']=='yggdrasil-sa')].data.token}"|base64 --decode > yggdrasil/$cluster_name-token
 
 kubectl apply -f kube-manifests/nginx-ingress-controller.yml
+done
+```
 
+Once the nginx ingress is up and running you can deploy the example app+ingress
+```
+for cluster_name in $(docker network list --format "{{ .Name}}" | grep k3d); do
+kubectl config use-context $cluster_name
 kubectl apply -f kube-manifests/example-ingress.yml
 done
 ```
@@ -65,3 +72,7 @@ Run yggdrasil and envoy from the docker-compose.yml and test that envoy is servi
 docker-compose up -d
 curl -H host:example.com http://localhost:10000
 ```
+
+If everything is working correctly, you should see the requests come from pods in different clusters
+
+You can access envoy admin interface from http://localhost:9901 to dump configuration

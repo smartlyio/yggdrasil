@@ -2,7 +2,7 @@ version: '3'
 services:
 
   yggdrasil:
-    image: yggdrasil:latest
+    image: local-yggdrasil:latest
     command: --config=config.yaml --debug --upstream-port=80
     container_name: yggdrasil
     restart: unless-stopped

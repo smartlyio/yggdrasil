@@ -8,7 +8,7 @@
 Vagrant.configure("2") do |config|
 
     config.vm.box = "ubuntu/focal64"
-    config.vm.network "forwarded_port", guest: 9901, host: 9902 #this is envoy managment port
+    config.vm.network "forwarded_port", guest: 9901, host: 9901 #this is envoy managment port
     config.vm.provider "virtualbox" do |v|
     config.vm.synced_folder "../../../", "/yggdrasil"
     v.memory = 10240
