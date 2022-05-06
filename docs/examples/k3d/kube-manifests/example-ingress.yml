@@ -52,3 +52,24 @@ spec:
       protocol: TCP
   selector:
     app: echo-server
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: echo-ingress-path1
+  annotations:
+    yggdrasil.uswitch.com/healthcheck-path: /healthz
+    yggdrasil.uswitch.com/timeout: 30s
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: example.net
+    http:
+      paths:
+      - backend:
+          service:
+            name: echo-service
+            port:
+              number: 80
+        path: /example
+        pathType: ImplementationSpecific

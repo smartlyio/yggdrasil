@@ -17,7 +17,7 @@ exit
 docker build . -t local-yggdrasil:latest
 ```
 
-Go to this examples directory and configure your k3d clusters
+Go to this examples directory (mounted at /vagrant) and configure your k3d clusters
 
 ```
 cd /vagrant
@@ -64,13 +64,21 @@ Once the nginx ingress is up and running you can deploy the example app+ingress
 for cluster_name in $(docker network list --format "{{ .Name}}" | grep k3d); do
 kubectl config use-context $cluster_name
 kubectl apply -f kube-manifests/example-ingress.yml
+kubectl apply -f kube-manifests/example-$cluster_name.yml
 done
 ```
 
 Run yggdrasil and envoy from the docker-compose.yml and test that envoy is serving example app
 ```
 docker-compose up -d
+```
+
+Now we can test the different paths and domains
+```
 curl -H host:example.com http://localhost:10000
+curl -H host:example.net http://localhost:10000/example
+curl -H host:cluster1.example.org http://localhost:10000/cluster1
+curl -H host:cluster2.example.org http://localhost:10000/cluster2
 ```
 
 If everything is working correctly, you should see the requests come from pods in different clusters
