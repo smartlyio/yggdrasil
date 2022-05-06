@@ -3,7 +3,7 @@ services:
 
   app:
     image: golang:1.18.1-buster
-    container_name: app
+    container_name: yggdrasil-app
     restart: unless-stopped
     tty: true
     environment:

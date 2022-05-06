@@ -3,3 +3,4 @@ command
 testing
 .vagrant
 config/cluster1-*
+docs/examples/k3d/yggdrasil/k3d-cluster*
