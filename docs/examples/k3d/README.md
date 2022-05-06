@@ -8,7 +8,7 @@ Build yggdrasil and it's docker image, in the repo root mounted at /yggdrasil:
 ```
 sudo su
 cd /yggdrasil
-docker run -it -w "/app" -v "$(pwd)/:/app" --network bridge golang:1.18.1-buster bash
+docker run -it -w "/app" -v "$(pwd)/:/app" --env "SERVICE_NAME=app" --env "SERVICE_TAGS=dev" --network bridge golang:1.18.1-buster bash
 go get
 go mod tidy
 make
@@ -24,11 +24,39 @@ k3d cluster create cluster1 --k3s-arg "--disable=traefik@server:0" --k3s-arg "--
 k3d cluster create cluster2 --k3s-arg "--disable=traefik@server:0" --k3s-arg "--disable=servicelb@server:0" --k3s-arg "--cluster-cidr=10.119.0.0/17@server:*" --k3s-arg "--service-cidr=10.119.128.0/17@server:*"
 
 for cluster_name in $(docker network list --format "{{ .Name}}" | grep k3d); do
+
 kubectl config use-context $cluster_name
+
+kubectl apply -f kube-manifests/metallb.yml
+
+# configure metallb ingress address range
+cidr_block=$(docker network inspect $cluster_name | jq '.[0].IPAM.Config[0].Subnet' | tr -d '"')
+cidr_base_addr=${cidr_block%???}
+ingress_first_addr=$(echo $cidr_base_addr | awk -F'.' '{print $1,$2,255,0}' OFS='.')
+ingress_last_addr=$(echo $cidr_base_addr | awk -F'.' '{print $1,$2,255,255}' OFS='.')
+ingress_range=$ingress_first_addr-$ingress_last_addr
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: metallb-system
+  name: config
+data:
+  config: |
+    address-pools:
+    - name: default
+      protocol: layer2
+      addresses:
+      - $ingress_range
+EOF
+
 kubectl config view --minify --raw --output "jsonpath={.clusters.name==\"$cluster_name\"}{..cluster.certificate-authority-data}" | base64 -d > yggdrasil/$cluster_name-ca.crt
 kubectl apply -f kube-manifests/yggdrasil.yml
-kubectl get secrets -o jsonpath="{.items[?(@.metadata.annotations['kubernetes\.io/service-account\.name']=='yggdrasil-sa')].data.token}"|base64 --decode > config/$cluster_name-token
+kubectl get secrets -o jsonpath="{.items[?(@.metadata.annotations['kubernetes\.io/service-account\.name']=='yggdrasil-sa')].data.token}"|base64 --decode > yggdrasil/$cluster_name-token
+
 kubectl apply -f kube-manifests/nginx-ingress-controller.yml
+
+kubectl apply -f kube-manifests/example-ingress.yml
 done
 ```
 
