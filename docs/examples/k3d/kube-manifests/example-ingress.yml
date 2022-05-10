@@ -5,6 +5,7 @@ metadata:
   annotations:
     yggdrasil.uswitch.com/healthcheck-path: /healthz
     yggdrasil.uswitch.com/timeout: 30s
+    nginx.ingress.kubernetes.io/use-regex: "true"
 spec:
   ingressClassName: nginx
   rules:
@@ -16,7 +17,7 @@ spec:
             name: echo-service
             port:
               number: 80
-        path: /
+        path: /foo/.*/lol
         pathType: ImplementationSpecific
 ---
 apiVersion: apps/v1
@@ -72,4 +73,25 @@ spec:
             port:
               number: 80
         path: /example
-        pathType: ImplementationSpecific
+        pathType: Prefix
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: echo-ingress-path2
+  annotations:
+    yggdrasil.uswitch.com/healthcheck-path: /healthz
+    yggdrasil.uswitch.com/timeout: 30s
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: example.net
+    http:
+      paths:
+      - backend:
+          service:
+            name: echo-service
+            port:
+              number: 80
+        path: /notexample
+        pathType: Prefix

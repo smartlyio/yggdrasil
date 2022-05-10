@@ -18,3 +18,24 @@ spec:
               number: 80
         path: /cluster2
         pathType: ImplementationSpecific
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: echo-ingress-cluster-spec1
+  annotations:
+    yggdrasil.uswitch.com/healthcheck-path: /healthz
+    yggdrasil.uswitch.com/timeout: 30s
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: cluster.example.org
+    http:
+      paths:
+      - backend:
+          service:
+            name: echo-service
+            port:
+              number: 80
+        path: /cluster2
+        pathType: ImplementationSpecific

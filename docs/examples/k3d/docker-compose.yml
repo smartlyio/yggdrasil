@@ -3,7 +3,7 @@ services:
 
   yggdrasil:
     image: local-yggdrasil:latest
-    command: --config=config.yaml --debug --upstream-port=80
+    command: --config=config.yaml --debug --upstream-port=30033 --use-remote-address
     container_name: yggdrasil
     restart: unless-stopped
     tty: true

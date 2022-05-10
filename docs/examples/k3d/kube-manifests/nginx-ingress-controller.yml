@@ -298,6 +298,10 @@ subjects:
 apiVersion: v1
 data:
   allow-snippet-annotations: "true"
+  use-forwarded-headers: "true"
+  compute-full-forwarded-for: "true"
+  enable-real-ip: "true"
+  use-regex: "true"
 kind: ConfigMap
 metadata:
   labels:
@@ -328,10 +332,12 @@ spec:
     port: 80
     protocol: TCP
     targetPort: http
+    nodePort: 30033
   - appProtocol: https
     name: https
     port: 443
     protocol: TCP
+    nodePort: 30034
     targetPort: https
   selector:
     app.kubernetes.io/component: controller
