@@ -99,7 +99,7 @@ func (i *IngressAggregator) List() ([]v1.Ingress, error) {
 			if len(ingress.Status.LoadBalancer.Ingress) <= 0 {
 				if len(store.endpoints) > 0 {
 					//inject Ingressendpoints
-					ingress.Annotations["ingressendpoints"] = strings.Join(store.endpoints[:], ",")
+					ingress.Annotations["yggdrasil.uswitch.com/ingressendpoints"] = strings.Join(store.endpoints[:], ",")
 				} else {
 					logrus.Debugf("the ingress ip address is empty %s", store.endpoints)
 				}

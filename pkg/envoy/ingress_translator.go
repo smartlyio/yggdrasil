@@ -256,7 +256,7 @@ func translateIngresses(ingresses []v1.Ingress) *envoyConfiguration {
 				virtualHost.addlocalroute(clustername, RouteMatch(Pathtranslate(path, pathType)))
 				cluster.addclustername(clustername)
 				if i.Annotations["ingressendpoints"] != "" {
-					for _, ip := range strings.Split(i.Annotations["ingressendpoints"], ",") {
+					for _, ip := range strings.Split(i.Annotations["yggdrasil.uswitch.com/ingressendpoints"], ",") {
 						cluster.addUpstream(ip)
 					}
 				} else {
