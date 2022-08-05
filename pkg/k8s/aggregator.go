@@ -21,10 +21,9 @@ type Ingresswatcher struct {
 
 //IngressAggregator used for running Ingress infomers
 type IngressAggregator struct {
-	stores           []Store
-	controllers      []cache.Controller
-	IngressEndpoints []string
-	events           chan interface{}
+	stores      []Store
+	controllers []cache.Controller
+	events      chan interface{}
 }
 type Store struct {
 	cachestore cache.Store
