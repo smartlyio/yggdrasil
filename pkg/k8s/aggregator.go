@@ -63,12 +63,12 @@ func (i *IngressAggregator) OnUpdate(old, new interface{}) {
 }
 
 //AddSource adds a new source for watching ingresses, must be called before running
-func (i *IngressAggregator) AddSource(source cache.ListerWatcher, endpoint []string) {
+func (i *IngressAggregator) AddSource(source cache.ListerWatcher, endpoints []string) {
 	//Todo implement handler for events
 	store, controller := cache.NewIndexerInformer(source, &v1.Ingress{}, time.Minute, i, cache.Indexers{})
 	cachestore := Store{
 		cachestore: store,
-		endpoints:  endpoint,
+		endpoints:  endpoints,
 	}
 	i.stores = append(i.stores, cachestore)
 	i.controllers = append(i.controllers, controller)
