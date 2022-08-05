@@ -168,7 +168,7 @@ func validIngressFilter(ingresses []v1.Ingress) []v1.Ingress {
 
 Ingress:
 	for _, i := range ingresses {
-		if i.Status.LoadBalancer.Ingress != nil || i.Annotations["ingressendpoints"] != "" {
+		if i.Status.LoadBalancer.Ingress != nil || i.Annotations["yggdrasil.uswitch.com/ingressendpoints"] != "" {
 			for _, k := range i.Spec.Rules {
 				if k.Host != "" {
 					vi = append(vi, i)
@@ -255,7 +255,7 @@ func translateIngresses(ingresses []v1.Ingress) *envoyConfiguration {
 
 				virtualHost.addlocalroute(clustername, RouteMatch(Pathtranslate(path, pathType)))
 				cluster.addclustername(clustername)
-				if i.Annotations["ingressendpoints"] != "" {
+				if i.Annotations["yggdrasil.uswitch.com/ingressendpoints"] != "" {
 					for _, ip := range strings.Split(i.Annotations["yggdrasil.uswitch.com/ingressendpoints"], ",") {
 						cluster.addUpstream(ip)
 					}
