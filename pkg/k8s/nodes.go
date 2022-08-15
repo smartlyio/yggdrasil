@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/sirupsen/logrus"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -31,8 +30,7 @@ func ClusterLoadbalancersIp(Nodeselector IngressNodeSelector, Endpoints IngressE
 				logrus.Debugf("can't get node information %s", err)
 			}
 			for i := 0; i < len(nodes.Items); i++ {
-				nodeip := []corev1.NodeAddress{}
-				nodeip = nodes.Items[i].Status.Addresses
+				nodeip := nodes.Items[i].Status.Addresses
 				ips = append(ips, nodeip[0].Address)
 			}
 		}

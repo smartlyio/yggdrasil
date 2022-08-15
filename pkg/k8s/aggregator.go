@@ -3,11 +3,10 @@ package k8s
 import (
 	"context"
 	"fmt"
-	"math/rand"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/client-go/tools/cache"
 )
@@ -22,10 +21,13 @@ type Ingresswatcher struct {
 
 //IngressAggregator used for running Ingress infomers
 type IngressAggregator struct {
-	stores           []cache.Store
-	controllers      []cache.Controller
-	IngressEndpoints []string
-	events           chan interface{}
+	stores      []Store
+	controllers []cache.Controller
+	events      chan interface{}
+}
+type Store struct {
+	cachestore cache.Store
+	endpoints  []string
 }
 
 func (i *IngressAggregator) Events() chan interface{} {
@@ -60,10 +62,14 @@ func (i *IngressAggregator) OnUpdate(old, new interface{}) {
 }
 
 //AddSource adds a new source for watching ingresses, must be called before running
-func (i *IngressAggregator) AddSource(source cache.ListerWatcher) {
+func (i *IngressAggregator) AddSource(source cache.ListerWatcher, endpoints []string) {
 	//Todo implement handler for events
 	store, controller := cache.NewIndexerInformer(source, &v1.Ingress{}, time.Minute, i, cache.Indexers{})
-	i.stores = append(i.stores, store)
+	cachestore := Store{
+		cachestore: store,
+		endpoints:  endpoints,
+	}
+	i.stores = append(i.stores, cachestore)
 	i.controllers = append(i.controllers, controller)
 }
 
@@ -73,8 +79,7 @@ func NewIngressAggregator(sources []Ingresswatcher) *IngressAggregator {
 		events: make(chan interface{}),
 	}
 	for _, s := range sources {
-		a.AddSource(s.Watcher)
-		a.IngressEndpoints = append(a.IngressEndpoints, s.IngressEndpoints...)
+		a.AddSource(s.Watcher, s.IngressEndpoints)
 	}
 	return a
 }
@@ -83,7 +88,7 @@ func NewIngressAggregator(sources []Ingresswatcher) *IngressAggregator {
 func (i *IngressAggregator) List() ([]v1.Ingress, error) {
 	is := make([]v1.Ingress, 0)
 	for _, store := range i.stores {
-		ingresses := store.List()
+		ingresses := store.cachestore.List()
 		for _, obj := range ingresses {
 			ingress, ok := obj.(*v1.Ingress)
 			if !ok {
@@ -91,13 +96,11 @@ func (i *IngressAggregator) List() ([]v1.Ingress, error) {
 			}
 			// check if loadbalancer status exist in ingress
 			if len(ingress.Status.LoadBalancer.Ingress) <= 0 {
-				if len(i.IngressEndpoints) > 0 {
-					//get random ip from Ingressendpoints
-					ip := rand.Int() % len(i.IngressEndpoints)
-					logrus.Debugf("ip address would be %s", i.IngressEndpoints[ip])
-					ingress.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{{IP: i.IngressEndpoints[ip]}}
+				if len(store.endpoints) > 0 {
+					//inject Ingressendpoints
+					ingress.Annotations["yggdrasil.uswitch.com/ingressendpoints"] = strings.Join(store.endpoints[:], ",")
 				} else {
-					logrus.Debugf("the ingress ip address is empty %s", i.IngressEndpoints)
+					logrus.Debugf("the ingress ip address is empty %s", store.endpoints)
 				}
 			}
 			is = append(is, *ingress)

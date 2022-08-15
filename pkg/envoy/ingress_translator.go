@@ -168,21 +168,18 @@ func validIngressFilter(ingresses []v1.Ingress) []v1.Ingress {
 
 Ingress:
 	for _, i := range ingresses {
-		for _, j := range i.Status.LoadBalancer.Ingress {
-			if j.Hostname != "" || j.IP != "" {
-				for _, k := range i.Spec.Rules {
-					if k.Host != "" {
-						vi = append(vi, i)
-						continue Ingress
-					}
+		if i.Status.LoadBalancer.Ingress != nil || i.Annotations["yggdrasil.uswitch.com/ingressendpoints"] != "" {
+			for _, k := range i.Spec.Rules {
+				if k.Host != "" {
+					vi = append(vi, i)
+					continue Ingress
 				}
-				logrus.Debugf("no host found in ingress config for: %+v in namespace: %+v", i.Name, i.Namespace)
-				continue Ingress
 			}
+			logrus.Debugf("no host found in ingress config for: %+v in namespace: %+v", i.Name, i.Namespace)
+			continue Ingress
 		}
 		logrus.Debugf("no hostname or ip for loadbalancer found in ingress config for: %+v in namespace: %+v", i.Name, i.Namespace)
 	}
-
 	return vi
 }
 
@@ -232,52 +229,59 @@ func translateIngresses(ingresses []v1.Ingress) *envoyConfiguration {
 	virtualhosts := map[string]*virtualHost{}
 
 	for _, i := range ingresses {
-		for _, j := range i.Status.LoadBalancer.Ingress {
-			for _, rule := range i.Spec.Rules {
 
-				_, ok := virtualhosts[rule.Host]
-				if !ok {
-					virtualhosts[rule.Host] = newVirtualHost(rule.Host)
+		for _, rule := range i.Spec.Rules {
+
+			_, ok := virtualhosts[rule.Host]
+			if !ok {
+				virtualhosts[rule.Host] = newVirtualHost(rule.Host)
+			}
+
+			virtualHost := virtualhosts[rule.Host]
+
+			for _, httppath := range httppaths(rule) {
+
+				_, exist := clusters[key{host: rule.Host, path: httppath.Path}]
+				if !exist {
+					clusters[key{host: rule.Host, path: httppath.Path}] = newCluster(rule.Host)
+				}
+				cluster := clusters[key{host: rule.Host, path: httppath.Path}]
+
+				path := stringOrDefault(httppath.Path, "/")
+				// Default to implementation specific path matching if not set.
+				pathType := derefPathTypeOr(httppath.PathType, v1.PathTypeImplementationSpecific)
+
+				clustername := fmt.Sprint(strings.Replace(rule.Host, ".", "_", -1), stringTohash(httppath.Path))
+
+				virtualHost.addlocalroute(clustername, RouteMatch(Pathtranslate(path, pathType)))
+				cluster.addclustername(clustername)
+				if i.Annotations["yggdrasil.uswitch.com/ingressendpoints"] != "" {
+					for _, ip := range strings.Split(i.Annotations["yggdrasil.uswitch.com/ingressendpoints"], ",") {
+						cluster.addUpstream(ip)
+					}
+				} else {
+					for _, j := range i.Status.LoadBalancer.Ingress {
+						if j.Hostname != "" {
+							cluster.addUpstream(j.Hostname)
+						} else if j.IP != "" {
+							cluster.addUpstream(j.IP)
+						}
+					}
 				}
 
-				virtualHost := virtualhosts[rule.Host]
-
-				for _, httppath := range httppaths(rule) {
-
-					_, exist := clusters[key{host: rule.Host, path: httppath.Path}]
-					if !exist {
-						clusters[key{host: rule.Host, path: httppath.Path}] = newCluster(rule.Host)
-					}
-					cluster := clusters[key{host: rule.Host, path: httppath.Path}]
-
-					path := stringOrDefault(httppath.Path, "/")
-					// Default to implementation specific path matching if not set.
-					pathType := derefPathTypeOr(httppath.PathType, v1.PathTypeImplementationSpecific)
-
-					clustername := fmt.Sprint(strings.Replace(rule.Host, ".", "_", -1), stringTohash(httppath.Path))
-
-					virtualHost.addlocalroute(clustername, RouteMatch(Pathtranslate(path, pathType)))
-					cluster.addclustername(clustername)
-
-					if j.Hostname != "" {
-						cluster.addUpstream(j.Hostname)
-					} else {
-						cluster.addUpstream(j.IP)
-					}
-
-					if i.GetAnnotations()["yggdrasil.uswitch.com/healthcheck-path"] != "" {
-						cluster.addHealthCheckPath(i.GetAnnotations()["yggdrasil.uswitch.com/healthcheck-path"])
-					}
+				if i.GetAnnotations()["yggdrasil.uswitch.com/healthcheck-path"] != "" {
+					cluster.addHealthCheckPath(i.GetAnnotations()["yggdrasil.uswitch.com/healthcheck-path"])
 				}
+			}
 
-				if i.GetAnnotations()["yggdrasil.uswitch.com/timeout"] != "" {
-					timeout, err := time.ParseDuration(i.GetAnnotations()["yggdrasil.uswitch.com/timeout"])
-					if err == nil {
-						virtualHost.addVhostTimeout(timeout)
-					}
+			if i.GetAnnotations()["yggdrasil.uswitch.com/timeout"] != "" {
+				timeout, err := time.ParseDuration(i.GetAnnotations()["yggdrasil.uswitch.com/timeout"])
+				if err == nil {
+					virtualHost.addVhostTimeout(timeout)
 				}
 			}
 		}
+
 	}
 
 	for _, cluster := range clusters {
