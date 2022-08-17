@@ -148,7 +148,6 @@ func (cfg *envoyConfiguration) equals(oldCfg *envoyConfiguration) (vmatch bool, 
 func classFilter(ingresses []v1.Ingress, ingressClass []string) []v1.Ingress {
 	is := make([]v1.Ingress, 0)
 	for _, i := range ingresses {
-		//	fmt.Println(i.Spec.IngressClassName)
 		if i.Spec.IngressClassName != nil {
 			for _, class := range ingressClass {
 				if i.GetAnnotations()["kubernetes.io/ingress.class"] == class || *i.Spec.IngressClassName == class {
