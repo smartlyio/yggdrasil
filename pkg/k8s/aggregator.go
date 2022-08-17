@@ -95,13 +95,11 @@ func (i *IngressAggregator) List() ([]v1.Ingress, error) {
 				return nil, fmt.Errorf("unexpected object in store: %+v", obj)
 			}
 			// check if loadbalancer status exist in ingress
-			if len(ingress.Status.LoadBalancer.Ingress) <= 0 {
-				if len(store.endpoints) > 0 {
-					//inject Ingressendpoints
-					ingress.Annotations["yggdrasil.uswitch.com/ingressendpoints"] = strings.Join(store.endpoints[:], ",")
-				} else {
-					logrus.Debugf("the ingress ip address is empty %s", store.endpoints)
-				}
+			if len(store.endpoints) > 0 {
+				//inject Ingressendpoints
+				ingress.Annotations["yggdrasil.uswitch.com/ingressendpoints"] = strings.Join(store.endpoints[:], ",")
+			} else {
+				logrus.Debugf("the ingress ip address is empty %s", store.endpoints)
 			}
 			is = append(is, *ingress)
 		}
