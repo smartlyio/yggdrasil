@@ -73,7 +73,7 @@ func assertServerNames(t *testing.T, filterChain *listener.FilterChain, expected
 
 func TestGenerate(t *testing.T) {
 	ingresses := []v1.Ingress{
-		newIngress("wibble", "bibble"),
+		newIngress("wibble", "bibble", pathvars{}),
 	}
 
 	configurator := NewKubernetesConfigurator("a", []Certificate{
@@ -92,8 +92,8 @@ func TestGenerate(t *testing.T) {
 
 func TestGenerateMultipleCerts(t *testing.T) {
 	ingresses := []v1.Ingress{
-		newIngress("foo.internal.api.com", "bibble"),
-		newIngress("foo.internal.api.co.uk", "bibble"),
+		newIngress("foo.internal.api.com", "bibble", pathvars{}),
+		newIngress("foo.internal.api.co.uk", "bibble", pathvars{}),
 	}
 
 	configurator := NewKubernetesConfigurator("a", []Certificate{
@@ -114,8 +114,8 @@ func TestGenerateMultipleCerts(t *testing.T) {
 
 func TestGenerateMultipleHosts(t *testing.T) {
 	ingresses := []v1.Ingress{
-		newIngress("foo.internal.api.com", "bibble"),
-		newIngress("foo.internal.api.co.uk", "bibble"),
+		newIngress("foo.internal.api.com", "bibble", pathvars{}),
+		newIngress("foo.internal.api.co.uk", "bibble", pathvars{}),
 	}
 
 	configurator := NewKubernetesConfigurator("a", []Certificate{
@@ -135,8 +135,8 @@ func TestGenerateMultipleHosts(t *testing.T) {
 
 func TestGenerateNoMatchingCert(t *testing.T) {
 	ingresses := []v1.Ingress{
-		newIngress("foo.internal.api.com", "bibble"),
-		newIngress("foo.internal.api.co.uk", "bibble"),
+		newIngress("foo.internal.api.com", "bibble", pathvars{}),
+		newIngress("foo.internal.api.co.uk", "bibble", pathvars{}),
 	}
 
 	configurator := NewKubernetesConfigurator("a", []Certificate{
@@ -153,7 +153,7 @@ func TestGenerateNoMatchingCert(t *testing.T) {
 
 func TestGenerateIntoTwoCerts(t *testing.T) {
 	ingresses := []v1.Ingress{
-		newIngress("foo.internal.api.com", "bibble"),
+		newIngress("foo.internal.api.com", "bibble", pathvars{}),
 	}
 
 	configurator := NewKubernetesConfigurator("a", []Certificate{

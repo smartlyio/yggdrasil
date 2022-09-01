@@ -9,6 +9,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type pathvars map[string]interface{}
+
 func TestVirtualHostEquality(t *testing.T) {
 	a := &virtualHost{Host: "foo"}
 	b := &virtualHost{Host: "foo"}
@@ -109,8 +111,8 @@ func TestEqualityVirtualHosts(t *testing.T) {
 }
 
 func TestEquals(t *testing.T) {
-	ingress := newIngress("foo.app.com", "foo.cluster.com")
-	ingress2 := newIngress("bar.app.com", "foo.bar.com")
+	ingress := newIngress("foo.app.com", "foo.cluster.com", pathvars{})
+	ingress2 := newIngress("bar.app.com", "foo.bar.com", pathvars{})
 	c := translateIngresses([]networkingv1.Ingress{ingress, ingress2})
 	c2 := translateIngresses([]networkingv1.Ingress{ingress, ingress2})
 
@@ -124,10 +126,10 @@ func TestEquals(t *testing.T) {
 }
 
 func TestNotEquals(t *testing.T) {
-	ingress := newIngress("foo.bar.com", "bar.cluster.com")
-	ingress2 := newIngress("foo.app.com", "bar.cluster.com")
-	ingress3 := newIngress("foo.baz.com", "bar.cluster.com")
-	ingress4 := newIngress("foo.howdy.com", "bar.cluster.com")
+	ingress := newIngress("foo.bar.com", "bar.cluster.com", pathvars{})
+	ingress2 := newIngress("foo.app.com", "bar.cluster.com", pathvars{})
+	ingress3 := newIngress("foo.baz.com", "bar.cluster.com", pathvars{})
+	ingress4 := newIngress("foo.howdy.com", "bar.cluster.com", pathvars{})
 	c := translateIngresses([]networkingv1.Ingress{ingress, ingress3, ingress2})
 	c2 := translateIngresses([]networkingv1.Ingress{ingress, ingress2, ingress4})
 
@@ -142,8 +144,8 @@ func TestNotEquals(t *testing.T) {
 }
 
 func TestPartialEquals(t *testing.T) {
-	ingress := newIngress("foo.app.com", "bar.cluster.com")
-	ingress2 := newIngress("foo.app.com", "foo.cluster.com")
+	ingress := newIngress("foo.app.com", "bar.cluster.com", pathvars{})
+	ingress2 := newIngress("foo.app.com", "foo.cluster.com", pathvars{})
 	c := translateIngresses([]networkingv1.Ingress{ingress2})
 	c2 := translateIngresses([]networkingv1.Ingress{ingress})
 
@@ -158,7 +160,7 @@ func TestPartialEquals(t *testing.T) {
 }
 
 func TestGeneratesForSingleIngress(t *testing.T) {
-	ingress := newIngress("foo.app.com", "foo.cluster.com")
+	ingress := newIngress("foo.app.com", "foo.cluster.com", pathvars{})
 	c := translateIngresses([]networkingv1.Ingress{ingress})
 
 	if len(c.VirtualHosts) != 1 {
@@ -186,8 +188,8 @@ func TestGeneratesForSingleIngress(t *testing.T) {
 }
 
 func TestGeneratesForMultipleIngressSharingSpecHost(t *testing.T) {
-	fooIngress := newIngress("app.com", "foo.com")
-	barIngress := newIngress("app.com", "bar.com")
+	fooIngress := newIngress("app.com", "foo.com", pathvars{})
+	barIngress := newIngress("app.com", "bar.com", pathvars{})
 	c := translateIngresses([]networkingv1.Ingress{fooIngress, barIngress})
 
 	if len(c.VirtualHosts) != 1 {
@@ -218,7 +220,7 @@ func TestGeneratesForMultipleIngressSharingSpecHost(t *testing.T) {
 
 func TestFilterMatchingIngresses(t *testing.T) {
 	ingress := []networkingv1.Ingress{
-		newIngress("host", "balancer"),
+		newIngress("host", "balancer", pathvars{}),
 	}
 	ingressClasses := []string{"bar"}
 	matchingIngresses := classFilter(ingress, ingressClasses)
@@ -228,7 +230,7 @@ func TestFilterMatchingIngresses(t *testing.T) {
 }
 func TestFilterNonMatchingIngresses(t *testing.T) {
 	ingress := []networkingv1.Ingress{
-		newIngress("host", "balancer"),
+		newIngress("host", "balancer", pathvars{}),
 	}
 	ingressClasses := []string{"another-class"}
 	matchingIngresses := classFilter(ingress, ingressClasses)
@@ -238,7 +240,7 @@ func TestFilterNonMatchingIngresses(t *testing.T) {
 }
 
 func TestIngressWithIP(t *testing.T) {
-	ingress := newIngressIP("app.com", "127.0.0.1")
+	ingress := newIngressIP("app.com", "127.0.0.1", pathvars{})
 	c := translateIngresses([]networkingv1.Ingress{ingress})
 	if c.Clusters[0].Hosts[0] != "127.0.0.1" {
 		t.Errorf("expected cluster host to be IP address, was %s", c.Clusters[0].Hosts[0])
@@ -247,7 +249,7 @@ func TestIngressWithIP(t *testing.T) {
 
 func TestIngressFilterWithValidConfigWithHostname(t *testing.T) {
 	ingresses := []networkingv1.Ingress{
-		newIngress("app.com", "foo.com"),
+		newIngress("app.com", "foo.com", pathvars{}),
 	}
 	matchingIngresses := validIngressFilter(ingresses)
 	if len(matchingIngresses) != 1 {
@@ -257,7 +259,7 @@ func TestIngressFilterWithValidConfigWithHostname(t *testing.T) {
 
 func TestIngressFilterWithValidConfigWithIP(t *testing.T) {
 	ingresses := []networkingv1.Ingress{
-		newIngressIP("app.com", "127.0.0.1"),
+		newIngressIP("app.com", "127.0.0.1", pathvars{"path": "/"}),
 	}
 	matchingIngresses := validIngressFilter(ingresses)
 	if len(matchingIngresses) != 1 {
@@ -267,7 +269,7 @@ func TestIngressFilterWithValidConfigWithIP(t *testing.T) {
 
 func TestIngressFilterWithNoHost(t *testing.T) {
 	ingresses := []networkingv1.Ingress{
-		newIngress("", "foo.com"),
+		newIngress("", "foo.com", pathvars{}),
 	}
 	matchingIngresses := validIngressFilter(ingresses)
 	if len(matchingIngresses) != 0 {
@@ -277,7 +279,7 @@ func TestIngressFilterWithNoHost(t *testing.T) {
 
 func TestIngressFilterWithNoLoadBalancerHostName(t *testing.T) {
 	ingresses := []networkingv1.Ingress{
-		newIngress("app.com", ""),
+		newIngress("app.com", "", pathvars{}),
 	}
 	matchingIngresses := validIngressFilter(ingresses)
 	if len(matchingIngresses) != 0 {
@@ -285,10 +287,20 @@ func TestIngressFilterWithNoLoadBalancerHostName(t *testing.T) {
 	}
 }
 
-func newIngress(specHost string, loadbalancerHost string) networkingv1.Ingress {
+func newIngress(specHost string, loadbalancerHost string, pathvars pathvars) networkingv1.Ingress {
 	var ingressClassName string = "bar"
 	ingressClassPointer := &ingressClassName
-	var pathPrefix networkingv1.PathType = networkingv1.PathTypePrefix
+
+	path := "/"
+	if val, ok := pathvars["path"]; ok {
+		path = val.(string)
+	}
+
+	pathType := networkingv1.PathTypePrefix
+	if val, ok := pathvars["pathType"]; ok {
+		pathType = val.(networkingv1.PathType)
+	}
+
 	return networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
@@ -304,8 +316,8 @@ func newIngress(specHost string, loadbalancerHost string) networkingv1.Ingress {
 						HTTP: &networkingv1.HTTPIngressRuleValue{
 							Paths: []networkingv1.HTTPIngressPath{
 								{
-									Path:     "/",
-									PathType: &pathPrefix,
+									Path:     path,
+									PathType: &pathType,
 									Backend: networkingv1.IngressBackend{
 										Service: &networkingv1.IngressServiceBackend{
 											Name: "http-svc",
@@ -331,8 +343,17 @@ func newIngress(specHost string, loadbalancerHost string) networkingv1.Ingress {
 	}
 }
 
-func newIngressIP(specHost string, loadbalancerHost string) networkingv1.Ingress {
-	var pathPrefix networkingv1.PathType = networkingv1.PathTypePrefix
+func newIngressIP(specHost string, loadbalancerHost string, pathvars pathvars) networkingv1.Ingress {
+	path := "/"
+	if val, ok := pathvars["path"]; ok {
+		path = val.(string)
+	}
+
+	pathType := networkingv1.PathTypePrefix
+	if val, ok := pathvars["pathType"]; ok {
+		pathType = val.(networkingv1.PathType)
+	}
+
 	return networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
@@ -347,8 +368,8 @@ func newIngressIP(specHost string, loadbalancerHost string) networkingv1.Ingress
 						HTTP: &networkingv1.HTTPIngressRuleValue{
 							Paths: []networkingv1.HTTPIngressPath{
 								{
-									Path:     "/",
-									PathType: &pathPrefix,
+									Path:     path,
+									PathType: &pathType,
 									Backend: networkingv1.IngressBackend{
 										Service: &networkingv1.IngressServiceBackend{
 											Name: "http-svc",
